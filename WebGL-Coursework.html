@@ -1,0 +1,467 @@
+﻿<html>
+	<head>
+		<title>CM20219 – Coursework 2 – WebGL</title>
+        <meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body { margin: 0; overflow: hidden; }
+			canvas { width: 100%; height: 100%; }
+		</style>
+	</head>
+	<body>
+		<script src="three.js"></script>
+		<script src="OBJLoader.js"></script>
+		<script>
+            "use strict"; // https://stackoverflow.com/q/1335851/72470
+
+            // Global variables that are available in all functions.
+            //scene variables:
+            var camera, scene, renderer, rho, phi = 45, theta = 45,
+			
+			//cube variables:
+			cube, vertices, edges, 
+			rotationX = 0, rotationY = 0, rotationZ = 0, 
+			renderFace = true, renderEdge = false, renderVertex = false, 
+			
+			//bunny variables:
+			bunny, bunnyGeometry, bunnyEdges, bunnyVertices,
+			bunnyRotX = 0, bunnyRotY = 0, bunnyRotZ = 0,
+			renderBunnyFace = true, renderBunnyEdge = false, renderBunnyVertex = false;
+
+            // Initialise the scene, and draw it for the first time.
+            init();
+			animate();
+			initBunny();
+			animateBunny();
+
+            // Listen for keyboard events, to react to them.
+            document.addEventListener('keydown', handleKeyDown);
+
+            // Scene initialisation, only runs once at the beginning.
+            function init() {
+                scene = new THREE.Scene();
+
+                // Set up the camera, move it to (3, 4, 5) and look at the origin (0, 0, 0).
+                setupCamera();
+				
+                // Draw a helper grid in the x-z plane (note: y is up).
+                scene.add(new THREE.GridHelper(10, 20, 0xffffff));
+
+                // Draw a cube (requirement 1).
+				drawCube();
+			                
+				// Visualise the axes of the global coordinate system (requirement 2).
+				drawAxes();
+
+                // Basic ambient lighting.
+                scene.add(new THREE.AmbientLight(0xffffff));
+				
+                // Complex lighting for 'face' rendering mode (requirement 4).
+				addDirLight();
+								
+                // Set up the Web GL renderer.
+                setupGLRenderer();
+				
+                // Handle resizing of the browser window.
+				window.addEventListener('resize', handleResize, false);
+			
+				// Adds ground plane for requirement 10.
+				addGroundPlane();
+            }
+			
+			// Sets up the camera.
+			function setupCamera() {
+				camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);	
+				camera.position.set(3, 4, 5);
+                camera.lookAt(new THREE.Vector3(0, 0, 0));
+			}
+			
+			// Sets up WebGL Renderer.
+			function setupGLRenderer() {
+				renderer = new THREE.WebGLRenderer({ antialias: true });
+				renderer.setPixelRatio(window.devicePixelRatio); // HiDPI/retina rendering
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                document.body.appendChild(renderer.domElement);
+				//the following line enables the use of shadows.
+				renderer.shadowMapEnabled = true;
+			}
+			
+			// Handles resizing of the browser window.
+            function handleResize()
+            {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(window.innerWidth, window.innerHeight);
+			}
+			
+			//requirements 1 and 7: draw cube and load textures to it.
+			function drawCube() {
+				var geometry = new THREE.BoxGeometry( 2, 2, 2 );
+				var material = [];
+				
+				material.push( new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture( 'qboxside1.png'), overdraw: true } ) );
+				material.push( new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture( 'qboxside2.png'), overdraw: true } ) );
+				material.push( new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture( 'qboxtop.png'), overdraw: true } ) );
+				material.push( new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture( 'qboxbottom.png'), overdraw: true } ) );
+				material.push( new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture( 'qboxside3.png'), overdraw: true } ) );
+				material.push( new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture( 'qboxside4.png'), overdraw: true } ) );
+				cube = new THREE.Mesh( geometry, material );
+				cube.castShadow = true;
+				
+				var geometryEdges = new THREE.EdgesGeometry(geometry);
+                edges = new THREE.LineSegments(geometryEdges, new THREE.LineBasicMaterial({ color: 0xFFFFFF, linewidth: 2 }));
+				edges.castShadow = true;
+				
+				var materialVertices = new THREE.PointsMaterial({ color: 0xFFFFFF, size: 0.2 });
+                vertices = new THREE.Points( geometry, materialVertices );
+				
+				scene.add(cube);
+			}
+			
+			//requirement 2: draw x, y, z axes.
+			function drawAxes() {
+				var axesHelper = new THREE.AxesHelper( 5 );
+				scene.add( axesHelper );
+			}
+			
+			// Animation loop function. This function is called whenever an update is required.
+			function animate()
+            {
+				requestAnimationFrame(animate);
+
+                //requirement 3: cube rotation (in its different view modes).
+				cube.rotation.x += rotationX;
+				cube.rotation.y += rotationY;
+				cube.rotation.z += rotationZ;
+				
+				edges.rotation.x = cube.rotation.x;
+                edges.rotation.y = cube.rotation.y;
+                edges.rotation.z = cube.rotation.z;
+				
+				vertices.rotation.x = cube.rotation.x;
+                vertices.rotation.y = cube.rotation.y;
+                vertices.rotation.z = cube.rotation.z;
+				
+                // Render the current scene to the screen.
+				renderer.render(scene, camera);
+			}
+			
+			//requirement 4: complex lighting.
+			function addDirLight() {
+				var directionalLight = new THREE.DirectionalLight( 0xffffff);
+				directionalLight.position.set(1, 1, 1).normalize();
+				directionalLight.castShadow = true;
+				scene.add( directionalLight );
+			}
+			
+			//requirement 4: rendering face view.
+			function faceRenderer() {
+				if (renderFace){
+					scene.remove(cube);
+					renderFace = false;
+				}
+				else{
+					scene.add(cube);
+					renderFace = true;
+				}
+			}
+			
+			//requirement 4: rendering edge view.
+			function edgeRenderer() {
+				if (renderEdge){
+					scene.remove(edges);
+					renderEdge = false;
+				}
+				else{
+					scene.add(edges);
+					renderEdge = true;
+				}
+			}
+			
+			//requirement 4: rendering vertex view.
+			function vertexRenderer() {
+				if (renderVertex) {
+                    scene.remove(vertices);
+					renderVertex = false;
+                }
+				else {
+					scene.add(vertices);
+					renderVertex = true;
+                }
+			}
+			
+			//requirement 5 involves translation and is only in the function handleKeyDown().
+			
+			//requirement 6: orbiting.
+			function cameraOrbit(){
+				rho = camera.position.length();
+				var cameraX = rho * Math.sin(phi) * Math.cos(theta);
+				var cameraZ = rho * Math.sin(phi) * Math.sin(theta);
+				var cameraY = rho * Math.cos(phi);
+				camera.position.set(cameraX, cameraY, cameraZ);
+				camera.lookAt(0, 0, 0);
+			}
+			
+			//requirement 7 is within the same code as requirement 1.
+			
+			//requirement 8: loading and initialising the bunny.
+			function initBunny() 
+			{
+				//https://threejs.org/docs/#examples/loaders/OBJLoader
+				// instantiate a loader for bunny
+				var loader = new THREE.OBJLoader();
+			
+				// load the resource
+				loader.load(
+					// resource URL
+					'models/bunny-5000.obj',
+					// called when resource is loaded
+					function ( object ) {
+						
+							//https://threejs.org/docs/#api/math/Box3
+							object.children[0].geometry.computeBoundingBox();
+							var sizeX = object.children[0].geometry.boundingBox.max.x - object.children[0].geometry.boundingBox.min.x;
+							var sizeY = object.children[0].geometry.boundingBox.max.y - object.children[0].geometry.boundingBox.min.y;
+							var sizeZ = object.children[0].geometry.boundingBox.max.z - object.children[0].geometry.boundingBox.min.z;
+							
+							object.children[0].geometry.scale(1/sizeX, 1/sizeY, 1/sizeZ);
+							
+							bunny = object.children[0];
+
+							//requirement 9: initialise bunny faces
+							bunny.material = new THREE.MeshPhongMaterial( { color: 0xF26FC6, specular: 0x555555, shininess: 30 } );
+							bunny.castShadow = true;
+							
+							//requirement 9: initialise bunny edges
+							var bunnyGeometry = new THREE.EdgesGeometry(bunny.geometry);
+							bunnyEdges = new THREE.LineSegments(bunnyGeometry, new THREE.LineBasicMaterial( { color: 0x000000, linewidth: 2 } ));
+							bunnyEdges.castShadow = true;
+							
+							//requirement 9: initialise bunny vertices
+							var pointsMaterial = new THREE.PointsMaterial( {size:0.005, color: 0x000000 } );
+							bunnyVertices = new THREE.Points(bunny.geometry, pointsMaterial);
+							
+							scene.add( bunny );
+					},
+					// called when loading is in progresses
+					function ( xhr ) {
+						console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+					},
+					// called when loading has errors
+					function ( error ) {
+						console.log( 'An error happened' );
+					}
+				)
+			}
+			
+			//requirement 9: animating bunny.
+			function animateBunny() {
+				requestAnimationFrame(animateBunny);
+				
+				if (bunny != null) {
+					bunny.rotation.x += bunnyRotX;
+					bunny.rotation.y += bunnyRotY;
+					bunny.rotation.z += bunnyRotZ;
+					
+					bunnyEdges.rotation.x = bunny.rotation.x;
+					bunnyEdges.rotation.y = bunny.rotation.y;
+					bunnyEdges.rotation.z = bunny.rotation.z;
+					
+					bunnyVertices.rotation.x = bunny.rotation.x;
+					bunnyVertices.rotation.y = bunny.rotation.y;
+					bunnyVertices.rotation.z = bunny.rotation.z;
+				}
+				
+                // Render the current scene to the screen.
+				renderer.render(scene, camera);
+			}
+			
+			//requirement 9: rendering bunny face view.
+			function bunnyFaceRenderer() {
+				if (renderBunnyFace){
+					scene.remove(bunny);
+					renderBunnyFace = false;
+				}
+				else{
+					scene.add(bunny);
+					renderBunnyFace = true;
+				}
+			}
+			
+			//requirement 9: rendering bunny edge view.
+			function bunnyEdgeRenderer() {
+				if (renderBunnyEdge){
+					scene.remove(bunnyEdges);
+					renderBunnyEdge = false;
+				}
+				else{
+					scene.add(bunnyEdges);
+					renderBunnyEdge = true;
+				}
+			}
+			
+			//requirement 9: rendering bunny vertex view.
+			function bunnyVertexRenderer() {
+				if (renderBunnyVertex) {
+                    scene.remove(bunnyVertices);
+					renderBunnyVertex = false;
+                }
+				else {
+					scene.add(bunnyVertices);
+					renderBunnyVertex = true;
+                }
+			}
+
+            // Requirement 10: adding a ground plane for casting a shadow.
+            function addGroundPlane() {
+                var groundGeometry = new THREE.PlaneGeometry(48, 48);
+                var groundMaterial = new THREE.MeshPhongMaterial( { color: 0x2b6fff, specular: 0x555555, shininess: 30 } );
+                
+                var groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
+                
+                groundPlane.translateY(-5);
+                groundPlane.rotateX(-Math.PI/2)
+
+                groundPlane.receiveShadow = true;
+
+                scene.add(groundPlane);
+            }
+			
+            // Handle keyboard presses. Contains code for several requirements as indicated.
+            function handleKeyDown(event)
+            {
+                switch (event.keyCode)
+                {
+					//requirement 3: cube rotation.
+					case 49: // 1 = x rotation
+                        if (rotationX == 0.01){
+							rotationX = 0.0;
+						}
+						else{
+							rotationX = 0.01;
+						}
+                        break;
+						
+					case 50: // 2 = y rotation
+                        if (rotationY == 0.01){
+							rotationY = 0.0;
+						}
+						else{
+							rotationY = 0.01;
+						}
+                        break;
+					
+					case 51: // 3 = z rotation
+                        if (rotationZ == 0.01){
+							rotationZ = 0.0;
+						}
+						else{
+							rotationZ = 0.01;
+						}
+                        break;
+					
+                    //requirement 4: cube render view modes.
+                    case 70: // f = face
+						faceRenderer();
+                        break;
+
+                    case 69: // e = edge
+						edgeRenderer();
+                        break;
+
+                    case 86: // v = vertex
+                        vertexRenderer();
+                        break;
+                  							
+					//requirement 5: translating the camera.
+					case 65: //a key for move left
+						camera.translateX(-0.1);
+						break
+						
+					case 87: //w key for move upwards
+						camera.translateY(0.1);
+						break;
+						
+					case 68: //d key for move right
+						camera.translateX(0.1);
+						break;
+						
+					case 83: //s key for move downwards
+						camera.translateY(-0.1);
+						break;
+						
+					case 90: // z key for zoom in
+						camera.translateZ(-0.1);
+						break;
+						
+					case 88: // x key for zoom out
+						camera.translateZ(0.1);
+						break;
+					
+					//requirement 6: camera orbiting.
+					case 37: //left arrow
+						theta += 0.1;
+						cameraOrbit();
+						break
+						
+					case 38: //up arrow
+						phi += 0.1;
+						cameraOrbit();
+						break;
+						
+					case 39: //right arrow
+						theta -= 0.1;
+						cameraOrbit();
+						break;
+						
+					case 40: //down arrow
+						phi -= 0.1;
+						cameraOrbit();
+						break;
+						
+					//requirement 9: bunny rotation.
+					case 52: // 4 = x rotation
+                        if (bunnyRotX == 0.01){
+							bunnyRotX = 0.0;
+						}
+						else{
+							bunnyRotX = 0.01;
+						}
+                        break;
+						
+					case 53: // 5 = y rotation
+                        if (bunnyRotY == 0.01){
+							bunnyRotY = 0.0;
+						}
+						else{
+							bunnyRotY = 0.01;
+						}
+                        break;
+					
+					case 54: // 6 = z rotation
+                        if (bunnyRotZ == 0.01){
+							bunnyRotZ = 0.0;
+						}
+						else{
+							bunnyRotZ = 0.01;
+						}
+                        break;
+					
+					//requirement 9: render bunny view modes.
+                    case 71: // g = bunny face
+						bunnyFaceRenderer();
+                        break;
+
+                    case 82: // r = bunny edge
+						bunnyEdgeRenderer();
+                        break;
+
+                    case 66: // b = bunny vertex
+                        bunnyVertexRenderer();
+                        break;
+                }
+            }
+			
+		</script>
+	</body>
+</html>
