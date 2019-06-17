@@ -3,8 +3,6 @@
 
 Refer to report for documentation.
 
-Dependencies:
-
+Dependencies are included, please refer to their respective licenses. They are:
 * WebGL
 * Three.js
-
