@@ -7,8 +7,8 @@ The report breaks the code down and discusses everything.
 
 # Setup and use
 
-Dependencies are included, please refer to their respective licenses. They are:
+Dependencies are included for convenience; please refer to their sites for respective licenses and further information. They are:
 * [WebGL](https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API)
 * [Three.js](https://threejs.org)
 
-Please refer to this [tutorial](https://webglfundamentals.org/webgl/lessons/webgl-setup-and-installation.html) to set up a web server and run WebGL.
+Please refer to this [tutorial](https://webglfundamentals.org/webgl/lessons/webgl-setup-and-installation.html) to set up a web server and run the code.
